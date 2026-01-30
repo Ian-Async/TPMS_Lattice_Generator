@@ -13,8 +13,8 @@ If you work with **Gyroid / Diamond / Primitive** (and friends), want controllab
   - Grading directions: **Z**, **X**, and **Diagonal (X–Z)**
   - Control **transition center** `d0` and **steepness** `k` (logistic blend)
 - **Target relative density (RD)** control using an iso-surface quantile strategy
-- **Real-time 3D preview** (PyVista)
-- **High-resolution STL export** (binary STL, progress + cancel)
+- **Real-time 3D preview**
+- **High-resolution STL export**
 - **Screenshot** export from the viewport
 - **UI features**:
   - **Dark / Light theme**
@@ -43,4 +43,5 @@ If you want to run or modify the code:
    ```bash
    pip install -r requirements.txt
 3.	Launch the GUI:
+   ```bash
    python TPMS_Mixer.py
