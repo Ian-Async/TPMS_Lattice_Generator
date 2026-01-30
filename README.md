@@ -39,31 +39,6 @@ You can preview the structure in real time and export high-resolution STL files 
 
 ---
 
-## 🖼️ Screenshots
-
-Create a folder in this repository:
-
-docs/screenshots/
-
-Put your screenshots there, for example:
-
-docs/screenshots/dark-ui.png
-docs/screenshots/light-ui.png
-docs/screenshots/hybrid-example.png
-
-Then display them in the README like:
-
-```markdown
-![Dark theme](docs/screenshots/dark-ui.png)
-![Hybrid TPMS example](docs/screenshots/hybrid-example.png)
-
-You can use screenshots to show:
-	•	dark vs light theme
-	•	Chinese vs English interface
-	•	different hybrid/graded TPMS results
-
-⸻
-
 🚀 Getting Started
 
 Option 1 (recommended): Run the prebuilt executable
