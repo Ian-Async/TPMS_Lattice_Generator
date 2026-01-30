@@ -1,0 +1,6 @@
+numpy
+scikit-image
+PySide6
+pyvista
+pyvistaqt
+vtk
