@@ -42,6 +42,6 @@ If you want to run or modify the code:
 2. Install dependencies:
    ```bash
    pip install -r requirements.txt
-3.	Launch the GUI:
+3. Launch the GUI:
    ```bash
    python TPMS_Mixer.py
