@@ -28,34 +28,8 @@ It is designed for additive manufacturing workflows and mechanical property stud
 
 ---
 
-## 🖼️ Screenshots (where to put them)
 
-Create a folder in your repo:
-
-docs/screenshots/
-
-Put your images there (PNG recommended), for example:
-
-- `docs/screenshots/ui-dark-cn.png`
-- `docs/screenshots/ui-light-en.png`
-- `docs/screenshots/hybrid-dg-diagonal.png`
-- `docs/screenshots/export-dialog.png`
-
-Then show them in the README like this:
-
-```markdown
-![Dark theme (CN)](docs/screenshots/ui-dark-cn.png)
-![Light theme (EN)](docs/screenshots/ui-light-en.png)
-
-Suggested screenshots to include:
-	1.	Dark theme + Chinese UI
-	2.	Light theme + English UI
-	3.	A clear hybrid example (e.g., Diamond–Gyroid, diagonal gradient)
-	4.	Export STL progress dialog
-
-⸻
-
-🚀 Quick Start (Users)
+##🚀 Quick Start (Users)
 
 Option A — Run the Windows build (recommended for classmates)
 	1.	Go to Releases and download the Windows .zip
