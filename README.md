@@ -18,7 +18,7 @@ If you work with **Gyroid / Diamond / Primitive** (and friends), want controllab
 - **Screenshot** export from the viewport
 - **UI features**:
   - **Dark / Light theme**
-  - **Chinese / English language switch**
+  - **中文 / English language switch**
   - Quick views: **Reset / Top / Front / Right**, plus **Zoom in/out**
 
 ---
@@ -29,11 +29,9 @@ If you work with **Gyroid / Diamond / Primitive** (and friends), want controllab
 If you just want to use the software without installing Python:
 
 1. Go to **Releases** on the right side of this repository.
-2. Download the latest `TPMS_Mixer_..._Windows_x64.zip`.
+2. Download the latest `TPMS_Mixer.zip`.
 3. Unzip it to any folder.
 4. Run `TPMS_Mixer.exe`.
-
-> Note: Do **not** run the exe inside the zip — unzip first.
 
 ---
 
