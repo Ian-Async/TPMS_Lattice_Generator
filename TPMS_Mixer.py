@@ -1,11 +1,9 @@
 from __future__ import annotations
-
 import math
 import struct
 import traceback
 import multiprocessing as mp
 from dataclasses import dataclass
-
 import numpy as np
 from skimage.measure import marching_cubes
 
