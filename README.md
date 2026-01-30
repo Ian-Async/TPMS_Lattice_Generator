@@ -27,7 +27,3 @@ It is designed for additive manufacturing workflows and mechanical property stud
 - **Binary STL export** with progress + cancel support
 
 ---
-
-
-
-Create a folder in your repo:
