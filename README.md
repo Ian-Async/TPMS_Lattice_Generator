@@ -1,115 +1,160 @@
 # TPMS_Lattice_Generator
 
-**TPMS_Lattice_Generator** is an interactive desktop tool for generating Triply Periodic Minimal Surface (TPMS) lattices and hybrid/graded TPMS structures.
+**TPMS_Lattice_Generator** is an interactive desktop tool for generating Triply Periodic Minimal Surface (TPMS) lattices and *hybrid/graded* TPMS structures.  
+It is designed for additive manufacturing workflows and mechanical property studies where you want precise control over lattice type, grading direction, transition behavior, and target relative density (RD).
 
-It is designed for additive manufacturing and mechanical property studies where you need precise control over lattice type, grading direction, transition behavior and target relative density (RD).  
-You can preview the structure in real time and export high-resolution STL files for 3D printing or simulation.
-
-> **In one sentence:** generate TPMS lattices (P/G/D/I/N), smoothly blend two topologies, preview in 3D, then export STL for printing or analysis.
+> **One sentence:** Generate TPMS lattices (P/G/D/I/N), blend two topologies with a controllable transition region, preview in 3D, then export STL for printing/simulation.
 
 ---
 
 ## ✨ Highlights
 
-- Multiple TPMS types  
-  Primitive (P), Gyroid (G), Diamond (D), I-WP (I), Neovius (N)
-
-- Hybrid / graded structures  
-  Smoothly blend **Topology A → Topology B** with a controllable transition region
-
-- Flexible grading direction  
-  - Z gradient (bottom → top)  
-  - X gradient (left → right)  
-  - Diagonal X–Z gradient  
-
-- Target relative density control  
-  Generate structures directly from a user-defined RD (0–1)
-
-- Two-stage resolution workflow  
-  - fast low-resolution preview for interaction  
-  - high-resolution reconstruction for STL export  
-
-- User-friendly GUI  
-  - Dark / Light theme switch  
-  - Chinese / English UI switch  
-  - One-click screenshot  
-  - Standard views (Top / Front / Right) and Reset view  
-
-- Binary STL export with progress bar and cancel support
+- **TPMS library**: Primitive (P), Gyroid (G), Diamond (D), I-WP (I), Neovius (N)
+- **Hybrid / graded TPMS**: blend Topology A → Topology B with a logistic transition
+- **Grading directions**:
+  - Z-gradient (bottom → top)
+  - X-gradient (left → right)
+  - Diagonal X–Z gradient
+- **Target relative density (RD) control**: generate lattices based on a user-defined RD (0–1)
+- **Dual resolution workflow**:
+  - fast **Preview Res**
+  - high-quality **Export Res** for STL
+- **GUI quality-of-life**:
+  - **Dark / Light theme** switch
+  - **中文 / English** UI switch
+  - Screenshot button for quick documentation
+  - Standard views (Top / Front / Right) + Reset
+- **Binary STL export** with progress + cancel support
 
 ---
 
-🚀 Getting Started
+## 🖼️ Screenshots (where to put them)
 
-Option 1 (recommended): Run the prebuilt executable
-	1.	Go to the Releases page of this repository
-	2.	Download the Windows package (zip file), e.g.
-TPMS_Mixer_v1.0_Windows_x64.zip
-	3.	Unzip it to any folder
-	4.	Open the folder and double-click TPMS_Mixer.exe
+Create a folder in your repo:
 
-No Python or extra installation is required.
-This is the easiest way to use the software.
+docs/screenshots/
 
-If Windows shows a security warning on first run, click
-“More info” → “Run anyway”.
+Put your images there (PNG recommended), for example:
 
-⸻
+- `docs/screenshots/ui-dark-cn.png`
+- `docs/screenshots/ui-light-en.png`
+- `docs/screenshots/hybrid-dg-diagonal.png`
+- `docs/screenshots/export-dialog.png`
 
-Option 2: Run from the Python source file
+Then show them in the README like this:
 
-If you prefer to run the .py file directly (for development or research):
-	1.	Clone or download this repository
+```markdown
+![Dark theme (CN)](docs/screenshots/ui-dark-cn.png)
+![Light theme (EN)](docs/screenshots/ui-light-en.png)
 
-git clone https://github.com/your-username/TPMS_Lattice_Generator.git
-cd TPMS_Lattice_Generator
-
-(or click Code → Download ZIP on GitHub and unzip it)
-	2.	Install the required dependencies
-
-pip install -r requirements.txt
-
-	3.	Run the program
-
-python TPMS_Mixer.py
-
-The graphical interface will open and you can use the tool exactly like the executable version.
-
-Note:
-	•	Installing packages such as vtk and pyvista may take some time.
-	•	If you only want to use the software, the executable in Releases is strongly recommended.
+Suggested screenshots to include:
+	1.	Dark theme + Chinese UI
+	2.	Light theme + English UI
+	3.	A clear hybrid example (e.g., Diamond–Gyroid, diagonal gradient)
+	4.	Export STL progress dialog
 
 ⸻
 
-🧠 How hybrid grading works
+🚀 Quick Start (Users)
 
-Two implicit TPMS fields are generated:
-	•	ΦA from Topology A
-	•	ΦB from Topology B
+Option A — Run the Windows build (recommended for classmates)
+	1.	Go to Releases and download the Windows .zip
+	2.	Unzip it anywhere
+	3.	Run TPMS_Mixer.exe
 
-They are blended using a logistic transition function controlled by:
-	•	d0 – transition center (where A and B are half-half)
-	•	k  – transition steepness (larger = sharper interface)
+✅ No Python environment needed.
 
-Together with the grading direction (Z, X or diagonal X–Z), this allows you to study:
-	•	different hybrid ratios
-	•	different transition thicknesses
-	•	different spatial grading strategies
+Option B — Run from source (developers)
 
-All while maintaining a global target relative density (RD).
+pip install numpy scikit-image PySide6 pyvista pyvistaqt vtk
+python Tpms_mixer.py
+
 
 ⸻
 
-📦 Export
+🧠 How the hybrid transition works (intuitive explanation)
 
-The exported STL:
-	•	is reconstructed at high resolution
-	•	uses binary STL format
-	•	shows a progress bar and supports cancellation
+You pick:
+	•	Topology A (primary phase)
+	•	Topology B (secondary phase)
+	•	A grading direction (Z / X / XZ)
 
-This makes it suitable for:
-	•	metal / polymer additive manufacturing
-	•	finite element analysis
-	•	porous structure research
+The tool computes two implicit fields ΦA and ΦB, then blends them using a logistic weight w:
+	•	d0 = transition center (where A→B is half-half)
+	•	k  = steepness (higher = sharper interface)
+
+This makes it easy to study:
+	•	different hybrid ratios (by shifting d0)
+	•	different transition thickness (by changing k)
+	•	different grading directions (Z vs X vs diagonal)
 
 ⸻
+
+🎛️ Main Controls (What each block does)
+
+UI
+	•	Language: 中文 / English
+	•	Theme: Dark / Light
+
+Topology
+	•	Topology A (primary): base structure
+	•	Topology B (secondary): blended structure
+
+Grading
+	•	Direction: Z, X, or diagonal X–Z
+	•	Transition center (d0): shifts the interface location
+	•	Steepness (k): controls the gradient thickness
+
+Geometry
+	•	Target RD: overall relative density target (0–1)
+	•	Periods Kx, Ky, Kz: number of unit cells in each axis
+	•	Size (mm) Sx, Sy, Sz: physical dimensions
+	•	Preview Res: fast mesh reconstruction for interactive preview
+	•	Export Res: high-resolution reconstruction for STL
+
+Render
+	•	Render style: material-like visualization presets
+	•	Preview: generate and display mesh
+	•	Export STL: save a binary STL with progress bar + cancel
+
+⸻
+
+🧩 Notes & Practical Tips
+	•	If preview/export is slow or memory-heavy:
+	•	reduce Res, or
+	•	reduce Kx/Ky/Kz
+	•	A very sharp transition (high k) can create a thin interface region; for printing, consider moderate values.
+	•	Export uses high-resolution marching cubes, so expect longer time than preview.
+
+⸻
+
+📦 What’s in a Release
+
+A release asset typically contains:
+	•	TPMS_Mixer.exe
+	•	required DLLs & runtime dependencies (packed by PyInstaller in onedir mode)
+
+Users only need to download → unzip → run.
+
+⸻
+
+📄 License
+
+MIT License (or update this section if you change the license).
+
+⸻
+
+🙌 Acknowledgements
+	•	Mesh extraction via skimage.measure.marching_cubes
+	•	Visualization via PyVista + PyVistaQt
+	•	GUI via PySide6
+
+---
+
+### 你下一步该做什么（最有效）
+1) 在仓库根目录新建 `README.md`，粘贴上面内容  
+2) 新建 `docs/screenshots/` 文件夹  
+3) 把你软件运行截图（暗色+中文、亮色+英文、杂化案例）放进去  
+4) 把 README 里的图片链接改成你真实文件名
+
+如果你愿意，把你准备好的 2~3 张截图文件名发我（或者直接发图），我可以帮你把 README 的截图部分改成“直接可用”的最终版本（包括排列、标题、说明文字）。
