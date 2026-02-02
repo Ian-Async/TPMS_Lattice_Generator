@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 import math
 import struct
 import traceback
 import multiprocessing as mp
 from dataclasses import dataclass
+
 import numpy as np
 from skimage.measure import marching_cubes
 
@@ -12,41 +14,34 @@ from skimage.measure import marching_cubes
 # Data model
 # ============================================================
 STRUCT_CODES = ["P", "G", "D", "I", "N"]
-DIR_CODES = ["Z", "X", "XZ"]  # Z: bottom->top, X: left->right, XZ: diagonal
+DIR_CODES = ["Z", "X", "XZ"]
 
 
 @dataclass
 class AppState:
-    # periods (number of unit cells)
     Kx: int = 2
     Ky: int = 2
     Kz: int = 2
 
-    # physical size (mm)
-    Sx: float = 30.0
-    Sy: float = 30.0
-    Sz: float = 30.0
+    Sx: float = 20.0
+    Sy: float = 20.0
+    Sz: float = 20.0
 
-    # resolution
-    res_preview: int = 20
+    res_preview: int = 30
     res_export: int = 80
 
-    # topology codes
-    typeA: str = "P"
+    typeA: str = "G"
     typeB: str = "G"
-    dir: str = "XZ"
+    dir: str = "Z"
 
-    # target relative density (0..1)
     RD: float = 0.30
 
-    # transition parameters
-    trans_center: float = 0.5   # d0, transition center in normalized coordinate
-    trans_k: float = 6.0        # logistic steepness k (bigger -> sharper transition)
+    trans_center: float = 0.5
+    trans_k: float = 6.0
 
-    # render
     visualStyle: str = "Ceramic Blue"
-    theme: str = "Dark"         # Dark / Light
-    lang: str = "中文"           # 中文 / English
+    theme: str = "Dark"
+    lang: str = "中文"
 
 
 # ============================================================
@@ -57,23 +52,23 @@ def get_field(code: str, X: np.ndarray, Y: np.ndarray, Z: np.ndarray) -> np.ndar
     Y = Y.astype(np.float32, copy=False)
     Z = Z.astype(np.float32, copy=False)
 
-    if code == "P":  # Primitive
+    if code == "P":
         return np.cos(X) + np.cos(Y) + np.cos(Z)
-    if code == "G":  # Gyroid
+    if code == "G":
         return np.sin(X) * np.cos(Y) + np.sin(Y) * np.cos(Z) + np.sin(Z) * np.cos(X)
-    if code == "D":  # Diamond
+    if code == "D":
         return (
             np.sin(X) * np.sin(Y) * np.sin(Z)
             + np.sin(X) * np.cos(Y) * np.cos(Z)
             + np.cos(X) * np.sin(Y) * np.cos(Z)
             + np.cos(X) * np.cos(Y) * np.sin(Z)
         )
-    if code == "I":  # I-WP
+    if code == "I":
         return (
             2.0 * (np.cos(X) * np.cos(Y) + np.cos(Y) * np.cos(Z) + np.cos(Z) * np.cos(X))
             - (np.cos(2 * X) + np.cos(2 * Y) + np.cos(2 * Z))
         )
-    if code == "N":  # Neovius
+    if code == "N":
         return 3.0 * (np.cos(X) + np.cos(Y) + np.cos(Z)) + 4.0 * np.cos(X) * np.cos(Y) * np.cos(Z)
 
     return np.cos(X) + np.cos(Y) + np.cos(Z)
@@ -119,7 +114,7 @@ def compute_tpms_verts_faces(state: AppState, res: int, max_voxels: int = 20_000
         elif state.dir == "X":
             dist = X / float(gx.max())
         else:
-            dist = (xn - zn + 1.0) / 2.0  # diagonal blend
+            dist = (xn - zn + 1.0) / 2.0
 
         w = 1.0 / (1.0 + np.exp(-state.trans_k * (dist - state.trans_center) * 10.0)).astype(np.float32)
         PhiFinal = (1.0 - w) * PhiA + w * PhiB
@@ -128,17 +123,21 @@ def compute_tpms_verts_faces(state: AppState, res: int, max_voxels: int = 20_000
     iso = float(np.quantile(absPhi, state.RD))
     sdf = (iso - np.abs(PhiFinal)).astype(np.float32)
 
-    # voxel -> physical scale, coordinates start at (0,0,0) and extend positive
     sx = state.Sx / max(rx - 1, 1)
     sy = state.Sy / max(ry - 1, 1)
     sz = state.Sz / max(rz - 1, 1)
 
-    # marching_cubes expects volume in (z,y,x)
     vol = np.transpose(sdf, (2, 1, 0))
-    verts, faces, _, _ = marching_cubes(vol, level=0.0, spacing=(sz, sy, sx))
 
-    # returned verts are (z,y,x) -> reorder to (x,y,z)
+    pad = 1
+    neg_const = -float(np.max(np.abs(vol)) + 1.0)
+    vol_pad = np.pad(vol, pad_width=pad, mode="constant", constant_values=neg_const)
+
+    verts, faces, _, _ = marching_cubes(vol_pad, level=0.0, spacing=(sz, sy, sx))
     verts = np.asarray(verts, dtype=np.float32)
+    verts[:, 0] -= pad * sz
+    verts[:, 1] -= pad * sy
+    verts[:, 2] -= pad * sx
     verts_xyz = np.column_stack([verts[:, 2], verts[:, 1], verts[:, 0]]).astype(np.float32)
     faces = np.asarray(faces, dtype=np.int32)
 
@@ -209,14 +208,13 @@ def run_gui():
     import pyvista as pv
     from pyvistaqt import QtInteractor
 
-    # ---------- Theme ----------
     THEMES = {
         "Dark": dict(
             panel_bg="#0f1012", panel_fg="#eaeaea", panel_border="#2a2b2f",
             canvas_bg=(0.06, 0.07, 0.08),
-            grid_minor=(0.72, 0.72, 0.80),
-            grid_major=(0.92, 0.92, 0.98),
-            axis_color=(0.95, 0.95, 0.98),
+            grid_minor=(0.60, 0.60, 0.70),
+            grid_major=(0.85, 0.85, 0.92),
+            axis_color=(1.0, 1.0, 1.0),
         ),
         "Light": dict(
             panel_bg="#f3f4f6", panel_fg="#111827", panel_border="#d1d5db",
@@ -227,15 +225,12 @@ def run_gui():
         ),
     }
 
-    # ---------- Styles (No Bone China) ----------
     STYLE_PRESETS = {
-        # tuned for visibility under LightKit + mild headlight
         "Ceramic Blue": dict(color=(0.14, 0.52, 0.96), ambient=0.10, diffuse=0.95, specular=0.85, spec_power=45),
         "Aged Copper":  dict(color=(0.95, 0.55, 0.18), ambient=0.10, diffuse=0.95, specular=0.82, spec_power=42),
         "Aurora Green": dict(color=(0.10, 0.82, 0.64), ambient=0.10, diffuse=0.95, specular=0.80, spec_power=42),
     }
 
-    # ---------- Professional terminology ----------
     STRUCT_LABELS = {
         "中文": {"P": "Primitive（P）", "G": "Gyroid（G）", "D": "Diamond（D）", "I": "I-WP（I）", "N": "Neovius（N）"},
         "English": {"P": "Primitive (P)", "G": "Gyroid (G)", "D": "Diamond (D)", "I": "I-WP (I)", "N": "Neovius (N)"},
@@ -276,6 +271,9 @@ def run_gui():
             "right": "右视",
             "zin": "放大",
             "zout": "缩小",
+            "pan": "平移",
+            "rot": "旋转",
+            "mouse_help": "提示：左键旋转，右键平移",
         },
         "English": {
             "title": "TPMS Generator",
@@ -288,7 +286,7 @@ def run_gui():
             "k": "Steepness (k)",
             "rd": "Target RD",
             "kxyz": "Periods K (x,y,z)",
-            "size": "Size (mm) x,y,z",
+            "size": "Size (mm)",
             "pre": "Preview Res",
             "exp": "Export Res",
             "style": "Render style",
@@ -308,6 +306,9 @@ def run_gui():
             "right": "Right",
             "zin": "Zoom+",
             "zout": "Zoom-",
+            "pan": "Pan",
+            "rot": "Rotate",
+            "mouse_help": "Tip: Left drag to rotate, right drag to pan",
         }
     }
 
@@ -361,14 +362,23 @@ def run_gui():
           - Wheel: dolly zoom (try focus on pick if valid)
           - Double click: reset view
         """
-        def __init__(self, plotter: QtInteractor, get_pick_point, on_reset):
+        def __init__(self, plotter: QtInteractor, get_pick_point, on_reset, zoom_step_cb):
             super().__init__()
             self.plotter = plotter
             self.get_pick_point = get_pick_point
             self.on_reset = on_reset
+            self.zoom_step_cb = zoom_step_cb
+            self.force_pan = False
+            self.force_orbit = False
             self._dragging = False
             self._mode = "orbit"
             self._last = None
+
+        def set_force_pan(self, enabled: bool):
+            self.force_pan = bool(enabled)
+
+        def set_force_orbit(self, enabled: bool):
+            self.force_orbit = bool(enabled)
 
         def install_on(self, widget):
             widget.installEventFilter(self)
@@ -395,11 +405,9 @@ def run_gui():
             if use_pick:
                 self._try_set_focal_to_pick()
             try:
-                # VTK: Dolly>1 zoom in, <1 zoom out
                 cam.Dolly(factor)
                 self.plotter.renderer.ResetCameraClippingRange()
             except Exception:
-                # fallback (stable)
                 pos = np.array(cam.position, dtype=float)
                 fp = np.array(cam.focal_point, dtype=float)
                 v = pos - fp
@@ -407,7 +415,7 @@ def run_gui():
                     return
                 cam.position = tuple((fp + v / factor).tolist())
 
-        def _pan(self, dx: float, dy: float):
+        def _pan(self, dx: float, dy: float, w: float, h: float):
             cam = self._camera()
             pos = np.array(cam.position, dtype=float)
             fp = np.array(cam.focal_point, dtype=float)
@@ -428,17 +436,22 @@ def run_gui():
             upn = np.cross(right, forward)
             upn /= (np.linalg.norm(upn) + 1e-12)
 
+            w = max(float(w), 1.0)
+            h = max(float(h), 1.0)
             dist = np.linalg.norm(fp - pos)
-            scale = dist * 0.0025
+            scale = dist * 0.0015
             shift = (-right * dx + upn * dy) * scale
 
             cam.position = tuple((pos + shift).tolist())
             cam.focal_point = tuple((fp + shift).tolist())
 
-        def _orbit(self, dx: float, dy: float):
+        def _orbit(self, dx: float, dy: float, w: float, h: float):
             try:
-                self.plotter.camera.Azimuth(-dx * 0.35)
-                self.plotter.camera.Elevation(dy * 0.35)
+                w = max(float(w), 1.0)
+                h = max(float(h), 1.0)
+                speed = 140.0
+                self.plotter.camera.Azimuth(-dx / w * speed)
+                self.plotter.camera.Elevation(dy / h * speed)
                 self.plotter.camera.OrthogonalizeViewUp()
                 self.plotter.renderer.ResetCameraClippingRange()
             except Exception:
@@ -451,14 +464,11 @@ def run_gui():
                 self.on_reset()
                 return True
 
-            if et == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+            if et == QEvent.MouseButtonPress and event.button() in (Qt.LeftButton, Qt.RightButton):
                 self._dragging = True
                 self._last = event.position()
-                mods = event.modifiers()
-                if mods & Qt.ShiftModifier:
+                if event.button() == Qt.RightButton:
                     self._mode = "pan"
-                elif mods & Qt.ControlModifier:
-                    self._mode = "dolly"
                 else:
                     self._mode = "orbit"
                 return True
@@ -470,11 +480,22 @@ def run_gui():
                 self._last = p
 
                 if self._mode == "orbit":
-                    self._orbit(dx, dy)
+                    try:
+                        w = obj.width()
+                        h = obj.height()
+                    except Exception:
+                        w = self.plotter.width()
+                        h = self.plotter.height()
+                    self._orbit(dx, dy, w, h)
                 elif self._mode == "pan":
-                    self._pan(dx, -dy)
+                    try:
+                        w = obj.width()
+                        h = obj.height()
+                    except Exception:
+                        w = self.plotter.width()
+                        h = self.plotter.height()
+                    self._pan(dx, dy, w, h)
                 else:
-                    # Ctrl+drag dolly, try focus on pick
                     factor = 1.0 + (-dy) * 0.01
                     factor = max(0.25, min(4.0, factor))
                     self._dolly(factor, use_pick=True)
@@ -482,7 +503,7 @@ def run_gui():
                 self.plotter.update()
                 return True
 
-            if et == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
+            if et == QEvent.MouseButtonRelease and event.button() in (Qt.LeftButton, Qt.RightButton):
                 self._dragging = False
                 self._last = None
                 return True
@@ -491,9 +512,11 @@ def run_gui():
                 delta = event.angleDelta().y()
                 if delta == 0:
                     return True
-                factor = 1.10 if delta > 0 else 0.90
-                self._dolly(factor, use_pick=True)
-                self.plotter.update()
+                if self.zoom_step_cb:
+                    self.zoom_step_cb(delta > 0)
+                else:
+                    factor = 1.10 if delta > 0 else 0.90
+                    self._dolly(factor, use_pick=False)
                 return True
 
             return super().eventFilter(obj, event)
@@ -506,6 +529,8 @@ def run_gui():
             super().__init__()
             self.state = AppState()
 
+            self._axis_font_base = 14
+
             self.cache_mesh = None
             self._proc = None
             self._q = None
@@ -514,19 +539,19 @@ def run_gui():
             self._bounds_actor = None
             self._grid_minor_actor = None
             self._grid_major_actor = None
+            self._force_pan = False
+            self._force_orbit = True
 
             root = QWidget()
             self.setCentralWidget(root)
             layout = QHBoxLayout(root)
 
-            # left panel
             self.cfg = QWidget()
             self.cfg.setFixedWidth(460)
             left = QVBoxLayout(self.cfg)
             left.setContentsMargins(10, 10, 10, 10)
             left.setSpacing(10)
 
-            # UI group
             g0 = QGroupBox("UI")
             g0l = QVBoxLayout(g0)
             r = QHBoxLayout()
@@ -539,7 +564,6 @@ def run_gui():
             r.addWidget(self.lblTheme); r.addWidget(self.cmbTheme); g0l.addLayout(r)
             left.addWidget(g0)
 
-            # topology
             g1 = QGroupBox("Topology")
             g1l = QVBoxLayout(g1)
             r = QHBoxLayout()
@@ -557,7 +581,6 @@ def run_gui():
             r.addWidget(self.lblB); r.addWidget(self.cmbB); g1l.addLayout(r)
             left.addWidget(g1)
 
-            # grading
             g2 = QGroupBox("Grading")
             g2l = QVBoxLayout(g2)
             r = QHBoxLayout()
@@ -578,7 +601,6 @@ def run_gui():
             r.addWidget(self.lblK); r.addWidget(ValueStepper(self.spK)); g2l.addLayout(r)
             left.addWidget(g2)
 
-            # geometry
             g3 = QGroupBox("Geometry")
             g3l = QGridLayout(g3)
             g3l.setHorizontalSpacing(10)
@@ -588,13 +610,11 @@ def run_gui():
             g3l.setColumnStretch(2, 1)
             g3l.setColumnStretch(3, 1)
 
-            # row 0: RD
             self.lblRD = QLabel()
             self.spRD = QDoubleSpinBox(); self.spRD.setRange(0.01, 0.99); self.spRD.setDecimals(2); self.spRD.setSingleStep(0.05); self.spRD.setValue(self.state.RD)
             g3l.addWidget(self.lblRD, 0, 0)
             g3l.addWidget(ValueStepper(self.spRD), 0, 1, 1, 3)
 
-            # row 1: Kx,Ky,Kz
             self.lblKXYZ = QLabel()
             self.spKx = QSpinBox(); self.spKx.setRange(1, 50); self.spKx.setValue(self.state.Kx)
             self.spKy = QSpinBox(); self.spKy.setRange(1, 50); self.spKy.setValue(self.state.Ky)
@@ -604,7 +624,6 @@ def run_gui():
             g3l.addWidget(ValueStepper(self.spKy), 1, 2)
             g3l.addWidget(ValueStepper(self.spKz), 1, 3)
 
-            # row 2: Size Sx,Sy,Sz
             self.lblSize = QLabel()
             self.spSx = QDoubleSpinBox(); self.spSx.setRange(1, 500); self.spSx.setDecimals(1); self.spSx.setValue(self.state.Sx)
             self.spSy = QDoubleSpinBox(); self.spSy.setRange(1, 500); self.spSy.setDecimals(1); self.spSy.setValue(self.state.Sy)
@@ -614,25 +633,21 @@ def run_gui():
             g3l.addWidget(ValueStepper(self.spSy), 2, 2)
             g3l.addWidget(ValueStepper(self.spSz), 2, 3)
 
-            # row 3: preview res
             self.lblPre = QLabel()
             self.spPre = QSpinBox(); self.spPre.setRange(10, 300); self.spPre.setValue(self.state.res_preview)
             g3l.addWidget(self.lblPre, 3, 0)
             g3l.addWidget(ValueStepper(self.spPre), 3, 1, 1, 3)
 
-            # row 4: export res
             self.lblExp = QLabel()
             self.spExp = QSpinBox(); self.spExp.setRange(20, 600); self.spExp.setValue(self.state.res_export)
             g3l.addWidget(self.lblExp, 4, 0)
             g3l.addWidget(ValueStepper(self.spExp), 4, 1, 1, 3)
 
-            # make label column wide enough so Chinese won't be clipped
             for lab in [self.lblRD, self.lblKXYZ, self.lblSize, self.lblPre, self.lblExp]:
                 lab.setMinimumWidth(140)
 
             left.addWidget(g3)
 
-            # render
             g4 = QGroupBox("Render")
             g4l = QVBoxLayout(g4)
             r = QHBoxLayout()
@@ -657,7 +672,6 @@ def run_gui():
 
             left.addStretch(1)
 
-            # right view + toolbar
             view = QWidget()
             v = QVBoxLayout(view); v.setContentsMargins(10, 10, 10, 10); v.setSpacing(6)
 
@@ -669,12 +683,21 @@ def run_gui():
             self.btnZoomIn = QPushButton()
             self.btnZoomOut = QPushButton()
             self.btnShot = QPushButton()
-            for b in [self.btnReset, self.btnTop, self.btnFront, self.btnRight, self.btnZoomIn, self.btnZoomOut, self.btnShot]:
+            self.btnPan = QPushButton()
+            self.btnPan.setCheckable(True)
+            self.btnRotate = QPushButton()
+            self.btnRotate.setCheckable(True)
+            for b in [self.btnReset, self.btnTop, self.btnFront, self.btnRight, self.btnRotate, self.btnPan, self.btnZoomIn, self.btnZoomOut, self.btnShot]:
                 b.setFixedHeight(28)
-            bl.addWidget(self.btnReset); bl.addWidget(self.btnTop); bl.addWidget(self.btnFront); bl.addWidget(self.btnRight)
+            bl.addWidget(self.btnReset); bl.addWidget(self.btnTop); bl.addWidget(self.btnFront); bl.addWidget(self.btnRight); bl.addWidget(self.btnRotate); bl.addWidget(self.btnPan)
             bl.addStretch(1)
             bl.addWidget(self.btnZoomIn); bl.addWidget(self.btnZoomOut); bl.addWidget(self.btnShot)
             v.addWidget(bar)
+
+            self.lblMouseHelp = QLabel()
+            self.lblMouseHelp.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.lblMouseHelp.setStyleSheet("font-size: 11px; opacity: 0.8;")
+            v.addWidget(self.lblMouseHelp)
 
             self.plotter = QtInteractor(view)
             self.plotter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -697,7 +720,6 @@ def run_gui():
             QTimer.singleShot(0, self._setup_viewport)
             self._wire()
 
-        # ---------------- Language/theme ----------------
         def _apply_language(self):
             self.setWindowTitle(t(self.state, "title"))
             self.lblLang.setText(t(self.state, "lang"))
@@ -723,8 +745,10 @@ def run_gui():
             self.btnZoomIn.setText(t(self.state, "zin"))
             self.btnZoomOut.setText(t(self.state, "zout"))
             self.btnShot.setText(t(self.state, "shot"))
+            self.btnPan.setText(t(self.state, "pan"))
+            self.btnRotate.setText(t(self.state, "rot"))
+            self.lblMouseHelp.setText(t(self.state, "mouse_help"))
 
-            # refresh dropdown text
             a = self.cmbA.currentIndex()
             b = self.cmbB.currentIndex()
             d = self.cmbDir.currentIndex()
@@ -740,12 +764,15 @@ def run_gui():
 
         def _apply_theme(self):
             th = THEMES[self.state.theme]
-            self.cfg.setStyleSheet(
+            self.setStyleSheet(
                 f"""
-                QWidget {{
+                QMainWindow, QWidget {{
                     background: {th['panel_bg']};
                     color: {th['panel_fg']};
                     font-size: 12px;
+                }}
+                QScrollArea, QFrame {{
+                    background: {th['panel_bg']};
                 }}
                 QGroupBox {{
                     border: 1px solid {th['panel_border']};
@@ -787,7 +814,6 @@ def run_gui():
                     background: transparent;
                 }}
 
-                /* ValueStepper Specific */
                 ValueStepper QPushButton {{
                     background: rgba(255,255,255,0.1);
                     border: 1px solid {th['panel_border']};
@@ -799,13 +825,11 @@ def run_gui():
                 ValueStepper QPushButton:hover {{
                     background: {th['panel_fg']}22;
                 }}
-
                 """
             )
             self.plotter.set_background(th["canvas_bg"])
             self.plotter.update()
 
-        # ---------------- Viewport: pick/lights/grid/axes ----------------
         def _pick_under_cursor(self):
             """Return picked world point or None. Never return garbage."""
             try:
@@ -816,7 +840,6 @@ def run_gui():
                 if p.shape != (3,) or (not np.all(np.isfinite(p))):
                     return None
 
-                # only accept pick inside the design box [0..Sx,0..Sy,0..Sz]
                 if (p[0] < 0 or p[0] > self.state.Sx or
                     p[1] < 0 or p[1] > self.state.Sy or
                     p[2] < 0 or p[2] > self.state.Sz):
@@ -827,7 +850,6 @@ def run_gui():
 
         def _ensure_bounds_actor(self):
             import pyvista as pv
-            # remove old bounds actor
             if self._bounds_actor is not None:
                 try:
                     self.plotter.remove_actor(self._bounds_actor)
@@ -835,23 +857,31 @@ def run_gui():
                     pass
                 self._bounds_actor = None
 
-            # invisible box defines a stable bounds even when no mesh exists
             box = pv.Box(bounds=(0, self.state.Sx, 0, self.state.Sy, 0, self.state.Sz))
             self._bounds_actor = self.plotter.add_mesh(box, opacity=0.0, pickable=False)
 
         def _show_axes_box(self):
             th = THEMES[self.state.theme]
             try:
+                dpr = 1.0
+                try:
+                    dpr = float(self.plotter.devicePixelRatioF())
+                except Exception:
+                    dpr = 1.0
+                axis_font = max(8, int(round(self._axis_font_base / max(dpr, 0.25))))
+                eps = 1e-6
                 self.plotter.show_grid(
                     xtitle="X (mm)",
                     ytitle="Y (mm)",
                     ztitle="Z (mm)",
                     color=th["axis_color"],
                     grid="back",
-                    location="origin",
+                    location="outer",
                     ticks="both",
                     minor_ticks=True,
-                    font_size=12,
+                    font_size=axis_font,
+                    fmt="%.0f",
+                    bounds=(eps, self.state.Sx, eps, self.state.Sy, eps, self.state.Sz),
                 )
             except Exception:
                 try:
@@ -877,39 +907,69 @@ def run_gui():
             self._grid_minor_actor = None
             self._grid_major_actor = None
 
-            # minor grid (dense)
-            minor = pv.Plane(
-                center=(self.state.Sx / 2, self.state.Sy / 2, 0.0),
-                direction=(0, 0, 1),
-                i_size=self.state.Sx,
-                j_size=self.state.Sy,
-                i_resolution=60,
-                j_resolution=60,
-            )
-            self._grid_minor_actor = self.plotter.add_mesh(
-                minor, style="wireframe",
-                color=th["grid_minor"],
-                line_width=1.05,
-                opacity=0.38 if self.state.theme == "Dark" else 0.45,
-                pickable=False
-            )
+            def is_major(v: float) -> bool:
+                return abs(v - round(v / 5.0) * 5.0) < 1e-6
 
-            # major grid (coarse)
-            major = pv.Plane(
-                center=(self.state.Sx / 2, self.state.Sy / 2, 0.0),
-                direction=(0, 0, 1),
-                i_size=self.state.Sx,
-                j_size=self.state.Sy,
-                i_resolution=10,
-                j_resolution=10,
-            )
-            self._grid_major_actor = self.plotter.add_mesh(
-                major, style="wireframe",
-                color=th["grid_major"],
-                line_width=2.0,
-                opacity=0.55 if self.state.theme == "Dark" else 0.62,
-                pickable=False
-            )
+            def build_grid_lines(step: float = 1.0):
+                sx = float(self.state.Sx)
+                sy = float(self.state.Sy)
+
+                xs = [float(i) for i in range(0, int(math.floor(sx)) + 1)]
+                ys = [float(i) for i in range(0, int(math.floor(sy)) + 1)]
+                if abs(xs[-1] - sx) > 1e-6:
+                    xs.append(sx)
+                if abs(ys[-1] - sy) > 1e-6:
+                    ys.append(sy)
+
+                minor_pts = []
+                minor_lines = []
+                major_pts = []
+                major_lines = []
+
+                def add_line(p0, p1, major: bool):
+                    if major:
+                        idx = len(major_pts)
+                        major_pts.extend([p0, p1])
+                        major_lines.extend([2, idx, idx + 1])
+                    else:
+                        idx = len(minor_pts)
+                        minor_pts.extend([p0, p1])
+                        minor_lines.extend([2, idx, idx + 1])
+
+                for x in xs:
+                    add_line((x, 0.0, 0.0), (x, sy, 0.0), major=is_major(x))
+
+                for y in ys:
+                    add_line((0.0, y, 0.0), (sx, y, 0.0), major=is_major(y))
+
+                minor_mesh = pv.PolyData(np.array(minor_pts, dtype=np.float32))
+                if minor_lines:
+                    minor_mesh.lines = np.array(minor_lines, dtype=np.int32)
+                major_mesh = pv.PolyData(np.array(major_pts, dtype=np.float32))
+                if major_lines:
+                    major_mesh.lines = np.array(major_lines, dtype=np.int32)
+
+                return minor_mesh, major_mesh
+
+            minor, major = build_grid_lines(step=1.0)
+
+            if minor.n_points > 0:
+                self._grid_minor_actor = self.plotter.add_mesh(
+                    minor,
+                    color=th["grid_minor"],
+                    line_width=1.05,
+                    opacity=0.38 if self.state.theme == "Dark" else 0.45,
+                    pickable=False
+                )
+
+            if major.n_points > 0:
+                self._grid_major_actor = self.plotter.add_mesh(
+                    major,
+                    color=th["grid_major"],
+                    line_width=2.2,
+                    opacity=0.65 if self.state.theme == "Dark" else 0.72,
+                    pickable=False
+                )
 
         def _apply_lights(self):
             """Balanced, MATLAB-like lighting (no blown highlights / no crushed shadows)."""
@@ -918,13 +978,11 @@ def run_gui():
             except Exception:
                 pass
 
-            # VTK LightKit: balanced multi-light setup
             try:
                 self.plotter.enable_lightkit()
             except Exception:
                 pass
 
-            # Gentle headlight to lift dark areas
             import pyvista as pv
             head = pv.Light(light_type="headlight")
             head.intensity = 0.35 if self.state.theme == "Dark" else 0.22
@@ -939,13 +997,11 @@ def run_gui():
                 except Exception:
                     pass
 
-            # Mild EDL improves depth without making it too dark
             try:
                 self.plotter.enable_eye_dome_lighting()
             except Exception:
                 pass
 
-            # Avoid hard shadows (can crush back-lit faces)
             try:
                 self.plotter.disable_shadows()
             except Exception:
@@ -961,24 +1017,25 @@ def run_gui():
             self.plotter.clear()
             self.plotter.set_background(th["canvas_bg"])
 
-            self._ensure_bounds_actor()   # IMPORTANT: prevents axis stacking at init
+            self._ensure_bounds_actor()
             self._show_axes_box()
             self._draw_floor_grids()
             self._enable_quality()
             self._apply_lights()
 
-            # Disable built-in interactor to avoid double-response drift
             try:
                 self.plotter.disable()
             except Exception:
                 pass
 
-            # Install MATLAB-like controller on the Qt widget itself
             self._vp = MatlabViewportController(
                 plotter=self.plotter,
                 get_pick_point=self._pick_under_cursor,
-                on_reset=self._reset_view
+                on_reset=self._reset_view,
+                zoom_step_cb=self._zoom_step
             )
+            self._vp.set_force_pan(self._force_pan)
+            self._vp.set_force_orbit(self._force_orbit)
             self._vp.install_on(self.plotter)
 
             self._reset_view()
@@ -1008,7 +1065,6 @@ def run_gui():
 
             self._reset_view()
 
-        # ---------------- Worker control ----------------
         def _start_child_compute(self, res, title, msg, on_done):
             self._stop_child()
 
@@ -1081,14 +1137,21 @@ def run_gui():
                     pass
                 self._q = None
 
-        # ---------------- Actions ----------------
         def _do_preview(self):
             st = AppState(**self.state.__dict__)
 
             def done(verts, faces):
                 import pyvista as pv
                 mesh = pv.PolyData(verts, faces_to_pv(faces)).clean(tolerance=1e-6).triangulate()
-                # keep preview responsive
+                try:
+                    mesh.points = np.clip(
+                        mesh.points,
+                        [0.0, 0.0, 0.0],
+                        [self.state.Sx, self.state.Sy, self.state.Sz]
+                    )
+                except Exception:
+                    pass
+
                 try:
                     if mesh.n_cells > 700_000:
                         mesh = mesh.decimate_pro(0.82)
@@ -1156,7 +1219,6 @@ def run_gui():
 
         def _zoom_step(self, zoom_in: bool):
             cam = self.plotter.camera
-            # stable dolly step
             factor = 1.10 if zoom_in else 0.90
             try:
                 cam.Dolly(factor)
@@ -1177,7 +1239,6 @@ def run_gui():
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"{e}\n\n{traceback.format_exc()}")
 
-        # ---------------- Wiring ----------------
         def _wire(self):
             def dirty():
                 self.cache_mesh = None
@@ -1227,6 +1288,18 @@ def run_gui():
             self.btnZoomIn.clicked.connect(lambda: self._zoom_step(True))
             self.btnZoomOut.clicked.connect(lambda: self._zoom_step(False))
             self.btnShot.clicked.connect(self._screenshot)
+            def apply_nav_modes(pan_on: bool | None = None, orbit_on: bool | None = None):
+                if pan_on is not None:
+                    self._force_pan = bool(pan_on)
+                if orbit_on is not None:
+                    self._force_orbit = bool(orbit_on)
+                if self._vp is not None:
+                    self._vp.set_force_pan(self._force_pan)
+                    self._vp.set_force_orbit(self._force_orbit)
+
+            self.btnPan.toggled.connect(lambda v: (self.btnRotate.setChecked(False) if v else None, apply_nav_modes(pan_on=v, orbit_on=(not v))))
+            self.btnRotate.toggled.connect(lambda v: (self.btnPan.setChecked(False) if v else None, apply_nav_modes(orbit_on=v, pan_on=(not v))))
+            self.btnRotate.setChecked(True)
 
         def _rerender_only(self):
             if self.cache_mesh is not None:
