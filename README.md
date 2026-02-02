@@ -44,4 +44,17 @@ If you want to run or modify the code:
    pip install -r requirements.txt
 3. Launch the GUI:
    ```bash
-   python TPMS_Mixer.py
+   python TPMS_Mixer_v1.1.0.py
+
+---
+
+## 🧩 Version Update — v1.1.0
+
+Based on recent optimizations and modifications, v1.1.0 includes:
+
+- **Viewport interaction overhaul**
+  - Smoother pan/zoom, double‑click reset, left-click rotate, right-click pan.
+- **Re-processing at Model Boundaries**
+  - Voxel padding was used to reproduce isocaps boundary closure.
+- **Optimize the UI interface**
+  - Optimized background display in Light and Dark modes.

@@ -683,20 +683,16 @@ def run_gui():
             self.btnZoomIn = QPushButton()
             self.btnZoomOut = QPushButton()
             self.btnShot = QPushButton()
-            self.btnPan = QPushButton()
-            self.btnPan.setCheckable(True)
-            self.btnRotate = QPushButton()
-            self.btnRotate.setCheckable(True)
-            for b in [self.btnReset, self.btnTop, self.btnFront, self.btnRight, self.btnRotate, self.btnPan, self.btnZoomIn, self.btnZoomOut, self.btnShot]:
+            for b in [self.btnReset, self.btnTop, self.btnFront, self.btnRight, self.btnZoomIn, self.btnZoomOut, self.btnShot]:
                 b.setFixedHeight(28)
-            bl.addWidget(self.btnReset); bl.addWidget(self.btnTop); bl.addWidget(self.btnFront); bl.addWidget(self.btnRight); bl.addWidget(self.btnRotate); bl.addWidget(self.btnPan)
+            bl.addWidget(self.btnReset); bl.addWidget(self.btnTop); bl.addWidget(self.btnFront); bl.addWidget(self.btnRight)
             bl.addStretch(1)
             bl.addWidget(self.btnZoomIn); bl.addWidget(self.btnZoomOut); bl.addWidget(self.btnShot)
             v.addWidget(bar)
 
             self.lblMouseHelp = QLabel()
+            self.lblMouseHelp.setObjectName("mouseHelp")
             self.lblMouseHelp.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-            self.lblMouseHelp.setStyleSheet("font-size: 11px; opacity: 0.8;")
             v.addWidget(self.lblMouseHelp)
 
             self.plotter = QtInteractor(view)
@@ -745,8 +741,6 @@ def run_gui():
             self.btnZoomIn.setText(t(self.state, "zin"))
             self.btnZoomOut.setText(t(self.state, "zout"))
             self.btnShot.setText(t(self.state, "shot"))
-            self.btnPan.setText(t(self.state, "pan"))
-            self.btnRotate.setText(t(self.state, "rot"))
             self.lblMouseHelp.setText(t(self.state, "mouse_help"))
 
             a = self.cmbA.currentIndex()
@@ -764,6 +758,7 @@ def run_gui():
 
         def _apply_theme(self):
             th = THEMES[self.state.theme]
+            help_bg = "rgba(255,255,255,0.10)" if self.state.theme == "Dark" else "rgba(0,0,0,0.06)"
             self.setStyleSheet(
                 f"""
                 QMainWindow, QWidget {{
@@ -812,6 +807,15 @@ def run_gui():
                 QPushButton:disabled {{
                     color: rgba(160,160,160,0.8);
                     background: transparent;
+                }}
+
+                QLabel#mouseHelp {{
+                    font-size: 12px;
+                    font-weight: 600;
+                    padding: 6px 10px;
+                    border-radius: 6px;
+                    border: 1px solid {th['panel_border']};
+                    background: {help_bg};
                 }}
 
                 ValueStepper QPushButton {{
@@ -1288,18 +1292,6 @@ def run_gui():
             self.btnZoomIn.clicked.connect(lambda: self._zoom_step(True))
             self.btnZoomOut.clicked.connect(lambda: self._zoom_step(False))
             self.btnShot.clicked.connect(self._screenshot)
-            def apply_nav_modes(pan_on: bool | None = None, orbit_on: bool | None = None):
-                if pan_on is not None:
-                    self._force_pan = bool(pan_on)
-                if orbit_on is not None:
-                    self._force_orbit = bool(orbit_on)
-                if self._vp is not None:
-                    self._vp.set_force_pan(self._force_pan)
-                    self._vp.set_force_orbit(self._force_orbit)
-
-            self.btnPan.toggled.connect(lambda v: (self.btnRotate.setChecked(False) if v else None, apply_nav_modes(pan_on=v, orbit_on=(not v))))
-            self.btnRotate.toggled.connect(lambda v: (self.btnPan.setChecked(False) if v else None, apply_nav_modes(orbit_on=v, pan_on=(not v))))
-            self.btnRotate.setChecked(True)
 
         def _rerender_only(self):
             if self.cache_mesh is not None:
