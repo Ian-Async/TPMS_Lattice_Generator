@@ -1,0 +1,24 @@
+# mac
+.DS_Store
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+.venv/
+
+# vscode
+.vscode/
+
+# data
+*.csv
+*.xlsx
+*.mat
+*.npz
+
+# build
+dist/
+build/
