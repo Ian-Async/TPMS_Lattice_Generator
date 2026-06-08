@@ -4,6 +4,8 @@ An interactive GUI tool for generating **Triply Periodic Minimal Surface (TPMS)*
 
 If you work with **Gyroid / Diamond / Primitive** (and friends), want controllable **relative density**, and need a quick way to explore **hybrid ratios + transition thickness**, this tool is built for that workflow.
 
+![TPMS Lattice Generator interface](assets/screenshot_light_en.png)
+
 ---
 
 ## ✨ Highlights
